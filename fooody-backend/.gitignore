@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.local
+.env.development
+.env.production
+service-account.json
+firebase-adminsdk*.json
+*.log
+npm-debug.log*
+coverage
+.jest
+.DS_Store
+.vscode
+*.tsbuildinfo

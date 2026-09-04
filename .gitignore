@@ -1,0 +1,39 @@
+# Root — Food App (backend + frontend)
+# Secrets — NEVER commit these
+**/.env
+**/.env.*
+**/.env.local
+**/.env.development
+**/.env.production
+**/.env*.local
+**/service-account.json
+**/serviceAccountKey.json
+**/firebase-adminsdk*.json
+**/*private*.json
+**/*secret*.json
+**/credentials.json
+**/*.pem
+**/*.key
+**/*.log
+**/backend.log
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Dependencies
+**/node_modules/
+**/dist/
+**/.expo/
+**/web-build/
+**/.jest/
+**/coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# Postman — may contain tokens after run
+postman/*.log
+
+# Keep templates
+!.env.example

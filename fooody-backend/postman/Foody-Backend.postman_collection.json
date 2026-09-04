@@ -1,0 +1,2463 @@
+{
+  "info": {
+    "name": "Foody Backend API",
+    "description": "Foody — Single-restaurant food ordering backend (Express + Firebase). Base {{baseUrl}} = http://localhost:5000 . Auth: Bearer {{idToken}} (mock customToken or test-token-{{uid}}). All bodies prefilled — Import → Update {{email}} → Run in order. Products/Categories/Restaurant/Offers are public reads; Products create/update & Orders status & Seed force require admin. Addresses & Orders require auth. Cart 200 client-persisted, Payments 501. Home aggregates restaurant+offers+categories+popular/recommended. Database seeded from frontend mock (8 products p1-p8, 6 categories, r1 Foody House, 2 offers). See docs/API.md. Updated 2026-09-03 v2: added 8→8 products, restaurant/offers/home/seed, product filters isPopular/isRecommended/isVeg.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "foody-backend-2026"
+  },
+  "item": [
+    {
+      "name": "00 — Health & Info",
+      "item": [
+        {
+          "name": "GET /health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Health 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Foody running\", () => { const j = pm.response.json(); pm.expect(j.success).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness probe. No auth."
+          },
+          "response": []
+        },
+        {
+          "name": "GET / (API info)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Version + docs pointer"
+          },
+          "response": []
+        }
+      ],
+      "description": "Check backend is up before testing auth."
+    },
+    {
+      "name": "01 — Auth - OTP",
+      "item": [
+        {
+          "name": "POST /api/v1/auth/send-otp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"send-otp 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.success) console.log(\"OTP expiresAt:\", j.data.expiresAt);",
+                  "if (!j.success) console.warn(j);",
+                  "// In dev the OTP is printed in server console: [DEV] Email OTP for {{email}}: 123456",
+                  "// Copy it into collection variable 'otp' before calling verify-otp"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"channel\": \"{{channel}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/send-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "send-otp"
+              ]
+            },
+            "description": "Send Email OTP. Rate-limited 10/hr, cooldown 60s. Body: email (required), channel=email|sms (default email). OTP printed to backend console in dev/mock mode."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/verify-otp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"verify-otp 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.success && j.data) {",
+                  "  pm.collectionVariables.set(\"customToken\", j.data.customToken);",
+                  "  pm.collectionVariables.set(\"uid\", j.data.uid);",
+                  "  pm.collectionVariables.set(\"email\", j.data.email);",
+                  "  pm.collectionVariables.set(\"idToken\", j.data.customToken);",
+                  "  pm.collectionVariables.set(\"testToken\", \"test-token-\" + j.data.uid);",
+                  "  console.log(\"Saved customToken, uid, idToken == customToken (mock), testToken=\"+pm.collectionVariables.get(\"testToken\"));",
+                  "}",
+                  "console.log(JSON.stringify(j,null,2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\",\n  \"channel\": \"{{channel}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify OTP -> returns customToken + uid. Covers: success, INVALID_OTP (400), OTP_EXPIRED, OTP_ALREADY_USED/OTP_NOT_FOUND, OTP_MAX_ATTEMPTS_EXCEEDED (429). On success this auto-saves {{customToken}}, {{uid}}, {{idToken}} (=customToken mock) and {{testToken}} (=test-token-uid). For real Firebase: exchange customToken via signInWithCustomToken() to get real ID token, then paste into {{idToken}}."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "02 — Auth - Magic Link",
+      "item": [
+        {
+          "name": "POST /api/v1/auth/send-magic-link",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"send-magic-link 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "if (j.success && j.data && j.data.link) {",
+                  "  try { const u = new URL(j.data.link); const t = u.searchParams.get(\"token\"); if(t){ pm.collectionVariables.set(\"magicToken\", t); console.log(\"Auto-saved magicToken:\", t); } } catch(e){ console.log(\"link:\", j.data.link); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/send-magic-link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "send-magic-link"
+              ]
+            },
+            "description": "Generate 32-byte token, store sha256, TTL 15min, one-time. Redirect base comes from MAGIC_LINK_REDIRECT_URL. Dev returns link with ?token= ; prod masks."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/verify-magic-link (JSON)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"verify-magic-link 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "if (j.success && j.data?.customToken) {",
+                  "  pm.collectionVariables.set(\"customToken\", j.data.customToken);",
+                  "  pm.collectionVariables.set(\"uid\", j.data.uid);",
+                  "  pm.collectionVariables.set(\"idToken\", j.data.customToken);",
+                  "  pm.collectionVariables.set(\"testToken\", \"test-token-\"+j.data.uid);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{magicToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-magic-link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-magic-link"
+              ]
+            },
+            "description": "Verify magic link via POST body {token}. Also test reuse (second call => 400 MAGIC_LINK_ALREADY_USED) and expired."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/auth/verify-magic-link?token=",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(pm.response.text().slice(0,500));",
+                  "try{ const j = pm.response.json(); if(j.success) { pm.collectionVariables.set(\"customToken\", j.data.customToken); pm.collectionVariables.set(\"idToken\", j.data.customToken);} } catch(e){}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-magic-link?token={{magicToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-magic-link"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{magicToken}}"
+                }
+              ]
+            },
+            "description": "Same as POST but via query – used by email deep-link. Send Accept: text/html to get HTML page, otherwise JSON."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "03 — Auth - Password",
+      "item": [
+        {
+          "name": "POST /api/v1/auth/set-password (AUTH)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/set-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "set-password"
+              ]
+            },
+            "description": "Set password after OTP/magic-link auth. Requires Bearer {{idToken}} (or {{testToken}} in mock). Validates: 8-100 chars, upper+lower+digit. Delegates to admin.auth().updateUser in prod, marks hasPassword=true."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/change-password (AUTH)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"{{newPassword}}\",\n  \"currentPassword\": \"OldPass1_optional\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Change password for authenticated user. Bearer required. Same validation as set-password."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/forgot-password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"forgot 200\",()=>pm.response.to.have.status(200));",
+                  "console.log(pm.response.json());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Request password reset link. Uses admin.generatePasswordResetLink in prod; mocks in dev. Never reveals if email exists."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oobCode\": \"{{oobCode}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "oobCode is Firebase action code from email link. NOTE: Admin SDK cannot verify oobCode server-side; endpoint returns advisory error to use Firebase Client SDK confirmPasswordReset(oobCode, newPassword). Kept for completeness."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "04 — Auth Session & Google",
+      "item": [
+        {
+          "name": "GET /api/v1/auth/me (AUTH)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Current user via Firebase ID token (synced from Firestore). Returns same shape as users/me. Tests 401 INVALID_TOKEN / TOKEN_EXPIRED when bad token."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/logout (AUTH)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Stateless logout – client discards tokens. Returns success; optionally revoke refresh tokens when Firebase configured."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/google (info — no body)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "google"
+              ]
+            },
+            "description": "Info variant: POST with empty body returns flow docs: Expo app does Google -> Firebase -> ID token -> Bearer flow. This is the placeholder branch when idToken missing."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/google (with idToken)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"{{idToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "google"
+              ]
+            },
+            "description": "Verify Google Firebase ID token, ensure user doc with providers=[\"google\"]. In prod requires real Google ID token; in mock will error BAD_REQUEST (requires Firebase config)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/auth/me - INVALID TOKEN (negative)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid-token-123"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Negative test: should return 401 INVALID_TOKEN."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/auth/me - NO TOKEN (negative)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Negative test: missing Authorization -> 401 UNAUTHORIZED."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "05 — Users",
+      "item": [
+        {
+          "name": "GET /api/v1/users/me (AUTH)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Get own profile. Alternative to /auth/me. Returns Firestore doc."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/users/me via testToken (MOCK helper)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{testToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Same as above but using mock helper test-token-{{uid}} (works when Firebase not configured, e.g., in CI/tests). Demonstrates mock auth path in auth.middleware."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/users/me (AUTH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"phone\": \"+919876543210\",\n  \"profileImage\": \"https://example.com/avatar.jpg\",\n  \"preferences\": {\n    \"notifications\": true,\n    \"language\": \"en\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Update profile. All fields optional: name 2-50 chars, phone E.164 (+919876543210), profileImage URL, preferences object. Validated via Zod."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/users/me - invalid phone (negative)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Negative: should 422 VALIDATION_ERROR (regex E.164)."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/users/me (AUTH) — DESTRUCTIVE LAST",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"delete 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Soft-delete (status=deleted) + disables Firebase user. RUN LAST FOR THAT USER – will invalidate the current uid/idToken. Create a fresh user (new email) after if you need further auth tests."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "06 — Validation negatives",
+      "item": [
+        {
+          "name": "POST send-otp - invalid email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/send-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "send-otp"
+              ]
+            },
+            "description": "Should 422 VALIDATION_ERROR."
+          },
+          "response": []
+        },
+        {
+          "name": "POST verify-otp - short otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"12\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Should 422 (otp 4-8 digits)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST set-password - weak password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"weak\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/set-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "set-password"
+              ]
+            },
+            "description": "Should 422 (need 8+ chars, upper+lower+digit)."
+          },
+          "response": []
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "07 — Catalog (Products & Categories) — NEW",
+      "item": [
+        {
+          "name": "GET /api/v1/products (list all)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"products 200\", ()=> pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has products array\", ()=> pm.expect(j.data).to.be.an('array'));",
+                  "if(j.data && j.data.length>0){ pm.collectionVariables.set(\"productId\", j.data[0].id); console.log(\"Saved productId:\", j.data[0].id); }",
+                  "console.log(\"Products count:\", j.data?.length);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            },
+            "description": "List products. Public. Supports query: ?categoryId=1&limit=20&search=pizza . Returns seeded 4 products in mock/memory or Firestore docs. Sorted by rating desc. Example uses no query to get all."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?categoryId=1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?categoryId={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                }
+              ]
+            },
+            "description": "Filter by categoryId. Public. Try categoryId=1 (Pizza), 2 (Burgers), 3 (Biryani)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?search=pizza",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?search=pizza",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "pizza"
+                }
+              ]
+            },
+            "description": "Text search in name/description (case-insensitive). Public. Firestore fallback does in-memory filter."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?limit=2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?limit=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "Limit param (max 100, default 20). Public."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Get single product by id. Public. Returns 404 NOT_FOUND if missing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products/:id - not found (negative)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/nonexistent-id-123",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "nonexistent-id-123"
+              ]
+            },
+            "description": "Negative: should 404 NOT_FOUND."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/products (ADMIN - create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"create product 201 or 403\", ()=> { const s = pm.response.code; pm.expect([201,200,403,401]).to.include(s); });",
+                  "const j = pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "if(j.success && j.data && j.data.id){ pm.collectionVariables.set(\"newProductId\", j.data.id); console.log(\"Saved newProductId:\", j.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Paneer Tikka Pizza\",\n  \"description\": \"Cottage cheese, tikka masala, bell peppers & onions on cheese burst base\",\n  \"price\": 399,\n  \"originalPrice\": 449,\n  \"image\": \"https://images.unsplash.com/photo-1594007654729-407eedc4be65?w=600\",\n  \"rating\": 4.6,\n  \"ratingCount\": 0,\n  \"isVeg\": true,\n  \"categoryId\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            },
+            "description": "Create product. AUTH + requireRole('admin'). Validates: name min2, description min5, price positive, image URL, categoryId required. Auto-generates id p_<timestamp> if not provided. 403 if not admin."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/products/:id (ADMIN - update)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 379,\n  \"isPopular\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{newProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{newProductId}}"
+              ]
+            },
+            "description": "Update product (partial). AUTH + admin. Uses {{newProductId}} saved from previous create; fallback to {{productId}} (p1) if newProductId empty. Try price, name, etc. 404 if not found."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/products - no auth (negative 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"X\",\n  \"description\": \"Y should fail\",\n  \"price\": 100,\n  \"image\": \"https://example.com/x.jpg\",\n  \"categoryId\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            },
+            "description": "Negative: no Authorization -> 401 UNAUTHORIZED."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/products/:id - forbidden if not admin (negative 403)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 999\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Negative: authenticated customer (non-admin) -> 403 FORBIDDEN requires role admin. If your test user is admin already, create a separate customer user to verify 403."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/categories (list all)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"categories 200\", ()=> pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if(j.data && j.data.length>0){ pm.collectionVariables.set(\"categoryId\", j.data[0].id); console.log(\"Saved categoryId:\", j.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories"
+              ]
+            },
+            "description": "List categories. Public. Seeded 6 categories (Pizza, Burgers, Biryani, Chinese, Desserts, Beverages) in mock."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/categories/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": "Get single category by id. Public. Returns 404-ish (success 404 with null data) if missing per controller."
+          },
+          "response": []
+        }
+      ],
+      "description": "Public reads; Admin writes. Previously placeholders 501 — now fully implemented. Products support ?categoryId & ?search & ?limit. Categories are public only."
+    },
+    {
+      "name": "07b — Products Extended Filters (NEW)",
+      "item": [
+        {
+          "name": "GET /api/v1/products?isPopular=true (NEW)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?isPopular=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "isPopular",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Filter popular products (isPopular=true) — maps to frontend Popular Today (p1,p2,p4). Public. New filter added 2026-09-03."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?isRecommended=true (NEW)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?isRecommended=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "isRecommended",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Filter recommended (isRecommended=true) — maps to frontend Recommended for You (p1,p3,p6)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?isVeg=true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?isVeg=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "isVeg",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Filter veg only. Public."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?isVeg=false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?isVeg=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "isVeg",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Filter non-veg only (burger, biryani)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?search=Brownie (NEW seed p6)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?search=Brownie",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Brownie"
+                }
+              ]
+            },
+            "description": "Search new product p6 Chocolate Fudge Brownie — verifies 8-product seed (previously only p1-p4). Also tests search includes categoryName."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?search=Chinese (categoryName)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?search=Chinese",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Chinese"
+                }
+              ]
+            },
+            "description": "Search by categoryName Chinese → should return p5 Hakka Noodles."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/products?categoryId=4&isVeg=true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?categoryId=4&isVeg=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "4"
+                },
+                {
+                  "key": "isVeg",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Combined filter category Chinese + veg — frontend search uses categoryName, backend supports both."
+          },
+          "response": []
+        }
+      ],
+      "description": "New filters isPopular/isRecommended/isVeg + new seeds p5-p8 verification. Added 2026-09-03 to cover frontend slices Popular/Popular and new products."
+    },
+    {
+      "name": "08 — Restaurant, Offers & Home — NEW",
+      "item": [
+        {
+          "name": "GET /api/v1/restaurants (list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "restaurants"
+              ]
+            },
+            "description": "List restaurants. Public. Seed r1 Foody House always present (memory or Firestore)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('restaurants 200',()=>pm.response.to.have.status(200));",
+                  "const j=pm.response.json();",
+                  "pm.test('has array',()=>pm.expect(j.data).to.be.an('array'));",
+                  "if(j.data && j.data.length>0){ pm.collectionVariables.set('restaurantId', j.data[0].id); console.log('Saved restaurantId', j.data[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/restaurant/default (single)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurant/default",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "restaurant",
+                "default"
+              ]
+            },
+            "description": "Convenience single-restaurant fetch (r1). Public. Alias for GET /restaurants/r1 but returns single object not array. Frontend RestaurantMenu uses this shape."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/restaurants/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "restaurants",
+                "{{restaurantId}}"
+              ]
+            },
+            "description": "Get restaurant by id (r1). Public. 404 if missing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/restaurant/:id (alias)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/restaurant/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "restaurant",
+                "{{restaurantId}}"
+              ]
+            },
+            "description": "Singular alias for GET /restaurants/:id — same handler, frontend convenience."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/offers (list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/offers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "offers"
+              ]
+            },
+            "description": "List offers. Public. Seeded o1 FLAT 20% OFF and o2 FREE DELIVERY from frontend mock. Color codes #FF5A3D/#16A34A."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('offers 200',()=>pm.response.to.have.status(200));",
+                  "const j=pm.response.json();",
+                  "pm.test('offers array',()=>pm.expect(j.data).to.be.an('array'));",
+                  "if(j.data && j.data.length>0){ pm.collectionVariables.set('offerId', j.data[0].id); console.log('Saved offerId', j.data[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/offers/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "offers",
+                "{{offerId}}"
+              ]
+            },
+            "description": "Get offer by id (o1/o2). Public. 404 if missing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/home (aggregated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/home",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "home"
+              ]
+            },
+            "description": "Aggregated home screen data: { restaurant, offers, categories, popular, recommended }. Public. Convenience for frontend Home which previously sliced mockProducts: popular = isPopular true (p1,p2,p4), recommended = isRecommended true (p1,p3,p6). One call replaces 5."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('home 200',()=>pm.response.to.have.status(200));",
+                  "const j=pm.response.json();",
+                  "pm.test('has restaurant',()=>pm.expect(j.data.restaurant).to.be.an('object'));",
+                  "pm.test('has offers',()=>pm.expect(j.data.offers).to.be.an('array'));",
+                  "pm.test('has categories',()=>pm.expect(j.data.categories).to.be.an('array'));",
+                  "pm.test('popular/recommended',()=>{ pm.expect(j.data.popular).to.be.an('array'); pm.expect(j.data.recommended).to.be.an('array'); });",
+                  "console.log('Home popular count', j.data.popular?.length, 'recommended', j.data.recommended?.length);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Single-restaurant (r1 Foody House) + 2 offers + aggregated home. All public. Synced from frontend mock/products.ts. Added 2026-09-03."
+    },
+    {
+      "name": "09 — Addresses (AUTH) — NEW",
+      "item": [
+        {
+          "name": "GET /api/v1/addresses (AUTH - list)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"addresses 200\", ()=> pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(\"Addresses:\", JSON.stringify(j,null,2));",
+                  "if(j.data && j.data.length>0){ pm.collectionVariables.set(\"addressId\", j.data[0].id); console.log(\"Saved addressId:\", j.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses"
+              ]
+            },
+            "description": "List addresses for authenticated user. AUTH required."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/addresses (AUTH - create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"create address 201\", ()=> pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "if(j.success && j.data && j.data.id){ pm.collectionVariables.set(\"addressId\", j.data.id); console.log(\"Saved addressId:\", j.data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"address\": \"123 MG Road, Koramangala, Bengaluru, Karnataka 560034\",\n  \"details\": \"Near Forum Mall, 2nd Floor\",\n  \"lat\": 12.9279,\n  \"lng\": 77.6271\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses"
+              ]
+            },
+            "description": "Create address. AUTH required. Body: label enum Home|Work|Other (required), address 5-300 chars (required), details max300 optional, lat/lng optional numbers."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/addresses - invalid label (negative 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"InvalidLabel\",\n  \"address\": \"short\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses"
+              ]
+            },
+            "description": "Negative: invalid enum -> 422 VALIDATION_ERROR."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/addresses/:id (AUTH - update)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"details\": \"Updated: Call upon arrival - 9876543210\",\n  \"label\": \"Work\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses/{{addressId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses",
+                "{{addressId}}"
+              ]
+            },
+            "description": "Update address (partial). AUTH required, must own address. Uses {{addressId}} saved from previous create/list. 404 if not found or not owned."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/addresses/:id (AUTH)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses/{{addressId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses",
+                "{{addressId}}"
+              ]
+            },
+            "description": "Delete address. AUTH required, must own. 404 if not found / not owned. Test deletes the {{addressId}} created above — create a new one afterwards if you need further tests."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/addresses - no auth (negative 401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "addresses"
+              ]
+            },
+            "description": "Negative: missing Authorization -> 401 UNAUTHORIZED."
+          },
+          "response": []
+        }
+      ],
+      "description": "CRUD for user addresses. All require Bearer {{idToken}}. Label enum Home|Work|Other."
+    },
+    {
+      "name": "10 — Orders (AUTH) — NEW",
+      "item": [
+        {
+          "name": "POST /api/v1/orders (AUTH - create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"create order 201\", ()=> pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "if(j.success && j.data){ pm.collectionVariables.set(\"orderId\", j.data.id); pm.collectionVariables.set(\"orderNumber\", j.data.orderNumber); console.log(\"Saved orderId:\", j.data.id, \"orderNumber:\", j.data.orderNumber); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"name\": \"Margherita Supreme\", \"price\": 349, \"quantity\": 2, \"image\": \"https://images.unsplash.com/photo-1594007654729-407eedc4be65?w=600\" },\n    { \"productId\": \"p3\", \"name\": \"Smoky BBQ Chicken Burger\", \"price\": 299, \"quantity\": 1 }\n  ],\n  \"subtotal\": 997,\n  \"deliveryFee\": 40,\n  \"tax\": 50,\n  \"discount\": 0,\n  \"total\": 1087,\n  \"paymentMethod\": \"cod\",\n  \"address\": { \"label\": \"Home\", \"address\": \"123 MG Road, Bengaluru\" }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "description": "Create order. AUTH required. Body: items array required (productId, name, price, quantity, image optional), subtotal/deliveryFee/tax/discount/total numbers (defaults 0 if missing), paymentMethod cod|online (default cod), address object optional. Returns id + orderNumber (ORD-...)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders (AUTH - list)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"orders list 200\", ()=> pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(\"Orders count:\", j.data?.length);",
+                  "if(j.data && j.data.length>0 && !pm.collectionVariables.get(\"orderId\")){ pm.collectionVariables.set(\"orderId\", j.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "description": "List orders for authenticated user. AUTH required. Query ?limit=20 (default). Sorted by createdAt desc. Merges Firestore + memory fallback."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders?limit=5 (AUTH)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders?limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "List with limit param. AUTH required."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders/:id (AUTH)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Get single order by id. AUTH required. Checks ownership: userId must match or role admin. 404 if not found, 403 if forbidden for other user's order."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/orders/:id/status (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"preparing\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "description": "Update order status. AUTH + requireRole('admin'). Allowed statuses: pending, preparing, out_for_delivery, delivered, cancelled. 400 INVALID if status invalid, 404 if order not found, 403 if not admin."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/orders - empty items (negative 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [],\n  \"total\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "description": "Negative: empty items -> 400 BAD_REQUEST Items required."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /api/v1/orders/:id/status - invalid status (negative 400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"invalid_status\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "description": "Negative: invalid status enum -> 400 BAD_REQUEST."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders - no auth (negative 401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "description": "Negative: missing Authorization -> 401 UNAUTHORIZED."
+          },
+          "response": []
+        }
+      ],
+      "description": "Orders require auth. Create, list, getById for owner; status update requires admin."
+    },
+    {
+      "name": "11 — Seed & Maintenance — NEW",
+      "item": [
+        {
+          "name": "POST /api/v1/seed (idempotent seed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seed"
+              ]
+            },
+            "description": "Trigger DB seed if collections empty (idempotent). Public for dev. Writes 8 products, 6 categories, 1 restaurant, 2 offers to Firestore if empty. In mock mode returns skippedReason.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('seed 200',()=>pm.response.to.have.status(200));",
+                  "const j=pm.response.json();",
+                  "console.log(JSON.stringify(j,null,2));",
+                  "pm.test('seed result',()=> pm.expect(j.data).to.have.property('products'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/seed (same as POST)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seed"
+              ]
+            },
+            "description": "GET alias for POST /seed — same idempotent seed."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seed?force=true (admin) - negative if not admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seed?force=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seed"
+              ],
+              "query": [
+                {
+                  "key": "force",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Force reseed — requires admin role. Customer token → 403 FORBIDDEN. To test forced seed, promote user to admin via Firestore (role:admin) then retry with admin token."
+          },
+          "response": []
+        }
+      ],
+      "description": "Idempotent Firestore seeding from frontend mock. POST /seed public, POST /seed?force admin only."
+    },
+    {
+      "name": "12 — Cart & Payments",
+      "item": [
+        {
+          "name": "GET /api/v1/cart (client-persisted)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"cart 200\", ()=> pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.message).to.include(\"client-persisted\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart"
+              ]
+            },
+            "description": "Cart is client-side persisted (Zustand + AsyncStorage). Server returns 200 with message 'Cart is client-persisted; no server sync required'. Not 501."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/cart - without auth (also 200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart"
+              ]
+            },
+            "description": "Cart without auth also returns 200 same message (public)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/payments (501 placeholder)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Payments module not implemented yet — returns 501 NOT_IMPLEMENTED. Placeholder mounted in routes/index.ts."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/payments (501 placeholder)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Payments POST also 501 (any method on /payments is 501)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Cart is 200 client-persisted (Zustand+AsyncStorage) — no server sync. Payments is 501 placeholder."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// no global prerequest - per-request scripts handle auto-save"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string",
+      "description": "Backend base URL. Change to production host when deployed."
+    },
+    {
+      "key": "email",
+      "value": "test@example.com",
+      "type": "string",
+      "description": "Test email. Change per run to avoid rate limits or reuse edge cases."
+    },
+    {
+      "key": "channel",
+      "value": "email",
+      "type": "string",
+      "description": "OTP channel: email (implemented) | sms (future, throws not-implemented)"
+    },
+    {
+      "key": "otp",
+      "value": "123456",
+      "type": "string",
+      "description": "6-digit OTP. In dev/mock read server console: [DEV] Email OTP for test@example.com: 654321 then paste here. Tests use 123456 helper."
+    },
+    {
+      "key": "magicToken",
+      "value": "",
+      "type": "string",
+      "description": "Raw 64-hex magic link token (?token=). Auto-filled after POST send-magic-link in dev; or copy from backend console / email link."
+    },
+    {
+      "key": "customToken",
+      "value": "",
+      "type": "string",
+      "description": "Firebase custom token returned by verify-otp / verify-magic-link. Auto-saved by those requests."
+    },
+    {
+      "key": "idToken",
+      "value": "",
+      "type": "string",
+      "description": "Firebase ID token for Authorization: Bearer. In mock mode, equals customToken (base64). In real Firebase, exchange customToken via signInWithCustomToken() and paste real ID token here."
+    },
+    {
+      "key": "testToken",
+      "value": "",
+      "type": "string",
+      "description": "Helper mock token test-token-{{uid}} usable when Firebase not configured. Auto-saved."
+    },
+    {
+      "key": "uid",
+      "value": "",
+      "type": "string",
+      "description": "Firebase UID / mock uid. Auto-saved."
+    },
+    {
+      "key": "password",
+      "value": "StrongPass1!",
+      "type": "string",
+      "description": "Must meet: 8-100 chars, at least 1 upper, 1 lower, 1 digit."
+    },
+    {
+      "key": "newPassword",
+      "value": "NewStrong2@",
+      "type": "string",
+      "description": "For change-password / reset-password."
+    },
+    {
+      "key": "oobCode",
+      "value": "fake-oob-code-for-test",
+      "type": "string",
+      "description": "Firebase action code from password-reset email link. Endpoint currently returns advisory error."
+    },
+    {
+      "key": "productId",
+      "value": "p1",
+      "type": "string",
+      "description": "Existing product ID for GET /products/:id (seeded p1-p4)"
+    },
+    {
+      "key": "newProductId",
+      "value": "",
+      "type": "string",
+      "description": "Auto-saved after POST /products (admin) — stores created product id for PATCH test"
+    },
+    {
+      "key": "categoryId",
+      "value": "1",
+      "type": "string",
+      "description": "Existing category ID for filtering (1=Pizza, 2=Burgers, etc) and GET /categories/:id"
+    },
+    {
+      "key": "addressId",
+      "value": "",
+      "type": "string",
+      "description": "Auto-saved after POST /addresses; used for PATCH/DELETE"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string",
+      "description": "Auto-saved after POST /orders; used for GET /orders/:id and PATCH /orders/:id/status"
+    },
+    {
+      "key": "orderNumber",
+      "value": "",
+      "type": "string",
+      "description": "Auto-saved orderNumber from POST /orders"
+    },
+    {
+      "key": "restaurantId",
+      "value": "r1",
+      "type": "string",
+      "description": "Restaurant id (seeded r1 = Foody House)"
+    },
+    {
+      "key": "offerId",
+      "value": "o1",
+      "type": "string",
+      "description": "Offer id (o1 FOODY20, o2 FREESHIP) — auto-saved by GET /offers"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "protocolProfileBehavior": {}
+}

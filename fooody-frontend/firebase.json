@@ -1,0 +1,17 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "authorizedDomains": ["localhost", "foody-61bab.firebaseapp.com", "foody-61bab.web.app"],
+    "providers": {
+      "anonymous": false,
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Foody",
+        "supportEmail": "support@foody-61bab.firebaseapp.com"
+      }
+    }
+  }
+}
