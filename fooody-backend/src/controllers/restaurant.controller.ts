@@ -24,4 +24,18 @@ export const restaurantController = {
       sendSuccess(res, restaurant, 'Restaurant retrieved');
     } catch (err) { next(err); }
   },
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const updated = await restaurantRepository.update(req.params.id, req.body);
+      if (!updated) throw new NotFoundError('Restaurant not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, updated, 'Restaurant updated');
+    } catch (err) { next(err); }
+  },
+  async updateDefault(req: Request, res: Response, next: NextFunction) {
+    try {
+      const updated = await restaurantRepository.update('default', req.body);
+      if (!updated) throw new NotFoundError('Restaurant not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, updated, 'Restaurant updated');
+    } catch (err) { next(err); }
+  },
 };

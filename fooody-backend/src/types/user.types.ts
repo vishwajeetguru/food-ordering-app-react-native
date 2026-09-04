@@ -19,6 +19,7 @@ export interface User {
     notifications?: boolean;
     language?: string;
   };
+  fcmTokens?: string[];
 }
 
 export interface CreateUserInput {

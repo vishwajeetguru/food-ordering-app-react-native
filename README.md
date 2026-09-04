@@ -274,6 +274,8 @@ SDK 57 requires **Node 22.13+**, **Xcode 26.4+** (iOS 16.4+), **Android compile/
 | `iosClientId must be defined` | Add `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (= Web client ID works in Expo Go) |
 | `Cloud Firestore API ... disabled` | Enable Firestore API: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=foody-61bab |
 | `tsc` baseUrl deprecation (TS 6) | Already fixed via `ignoreDeprecations: 6.0` |
+| `PushNotificationIOS` / `native module doesn't exist` (Expo Go) | Fixed: `metro.config.js` mocks `PushNotificationIOS` + `src/mocks/PushNotificationIOS.mock.js`; `useNotifications` uses mock tokens in Expo Go. For real push, create a dev build: `npx expo prebuild && npx expo run:ios` |
+| Reanimated `strict` mode warning | Disabled via `configureReanimatedLogger({strict:false})` in `app/_layout.tsx:8` |
 
 ---
 

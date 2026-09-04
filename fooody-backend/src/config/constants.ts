@@ -9,6 +9,12 @@ export const COLLECTIONS = {
   CARTS: 'carts',
   RESTAURANTS: 'restaurants',
   OFFERS: 'offers',
+  BANNERS: 'banners',
+  SETTINGS: 'settings',
+  WISHLISTS: 'wishlists',
+  NOTIFICATIONS: 'notifications',
+  FCM_TOKENS: 'fcmTokens',
+  SUPPORT_TICKETS: 'supportTickets',
 } as const;
 
 export const USER_ROLES = {

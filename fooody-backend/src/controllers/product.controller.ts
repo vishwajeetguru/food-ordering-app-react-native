@@ -39,5 +39,19 @@ export const productController = {
       if(!updated) throw new NotFoundError('Product not found', ERROR_CODES.NOT_FOUND);
       sendSuccess(res, updated, 'Product updated');
     }catch(err){ next(err); }
+  },
+  async delete(req: Request, res: Response, next: NextFunction){
+    try{
+      const ok = await productRepository.delete(req.params.id);
+      if(!ok) throw new NotFoundError('Product not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, null, 'Product deleted');
+    }catch(err){ next(err); }
+  },
+  async duplicate(req: Request, res: Response, next: NextFunction){
+    try{
+      const copy = await productRepository.duplicate(req.params.id);
+      if(!copy) throw new NotFoundError('Product not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, copy, 'Product duplicated', 201);
+    }catch(err){ next(err); }
   }
 };

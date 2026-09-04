@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, TextInput, FlatList, Pressable, ScrollView } from 'react-native';
+import { View, Text, FlatList, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -10,17 +10,22 @@ import { spacing, radius } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { useDebouncedValue } from '@/hooks/useDebouncedSearch';
 import { useProducts, useCategories } from '@/hooks/useCatalog';
+import { SearchBar } from '@/components/SearchBar';
 
 export default function Search() {
   const router = useRouter();
   const [query, setQuery] = React.useState('');
   const debounced = useDebouncedValue(query, 300);
   const [recent, setRecent] = React.useState<string[]>(['pizza', 'biryani']);
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
 
   const { data: categories } = useCategories();
-  const { data: results, isPending } = useProducts(debounced.trim() ? { search: debounced.trim() } : undefined);
   const hasQuery = debounced.trim().length > 0;
-  const list = hasQuery ? (results ?? []) : [];
+  const hasFilter = !!selectedCategory || hasQuery;
+  const { data: results, isPending } = useProducts(
+    hasFilter ? { search: debounced.trim() || undefined, categoryId: selectedCategory || undefined } : undefined,
+  );
+  const list = hasFilter ? (results ?? []) : [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -29,27 +34,32 @@ export default function Search() {
           <Pressable onPress={() => router.back()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
           </Pressable>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, height: 44 }}>
-            <Ionicons name="search" size={17} color={colors.textTertiary} />
-            <TextInput
-              placeholder="Search for dishes"
-              placeholderTextColor={colors.textTertiary}
-              value={query}
-              onChangeText={setQuery}
-              style={{ flex: 1, color: colors.textPrimary, fontSize: 16 }}
-              autoFocus
-              returnKeyType="search"
-            />
-            {query ? (
-              <Pressable onPress={() => setQuery('')}>
-                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
-              </Pressable>
-            ) : null}
-          </View>
+          <SearchBar value={query} onChangeText={setQuery} placeholder="Search for dishes" autoFocus onClear={() => setQuery('')} />
         </View>
+        {/* Category filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          <Pressable
+            onPress={() => setSelectedCategory(null)}
+            style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: !selectedCategory ? colors.primary : colors.surface, borderWidth: 1, borderColor: !selectedCategory ? colors.primary : colors.border }}
+          >
+            <Text style={{ ...typography.label, color: !selectedCategory ? colors.textInverse : colors.textPrimary }}>All</Text>
+          </Pressable>
+          {(categories ?? []).map((c) => {
+            const active = selectedCategory === c.id;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => setSelectedCategory(active ? null : c.id)}
+                style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: active ? colors.primary : colors.surface, borderWidth: 1, borderColor: active ? colors.primary : colors.border }}
+              >
+                <Text style={{ ...typography.label, color: active ? colors.textInverse : colors.textPrimary }}>{c.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </Animated.View>
 
-      {!hasQuery ? (
+      {!hasFilter ? (
         <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}>
           {recent.length ? (
             <Animated.View entering={FadeInUp.delay(100).duration(400)} style={{ gap: spacing.md }}>

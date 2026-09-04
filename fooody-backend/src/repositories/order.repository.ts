@@ -100,5 +100,20 @@ export const orderRepository = {
       memoryOrders.set(id, updated);
       return updated;
     }
+  },
+  async listAll(limit=100): Promise<Order[]>{
+    if(shouldUseMemory()){
+      return Array.from(memoryOrders.values()).sort((a,b)=> new Date(b.createdAt).getTime()- new Date(a.createdAt).getTime()).slice(0, limit);
+    }
+    try{
+      const snap = await getFirestore().collection(COLLECTIONS.ORDERS).orderBy('createdAt','desc').limit(limit).get();
+      const firestoreOrders = snap.docs.map(d=> d.data() as Order);
+      const mem = Array.from(memoryOrders.values());
+      const merged = [...firestoreOrders, ...mem.filter(m=> !firestoreOrders.find(f=> f.id===m.id))];
+      return merged.sort((a,b)=> new Date(b.createdAt).getTime()- new Date(a.createdAt).getTime()).slice(0, limit);
+    }catch(e:any){
+      logger.warn('orderRepository.listAll fallback', {error:e.message});
+      return Array.from(memoryOrders.values()).sort((a,b)=> new Date(b.createdAt).getTime()- new Date(a.createdAt).getTime()).slice(0, limit);
+    }
   }
 };

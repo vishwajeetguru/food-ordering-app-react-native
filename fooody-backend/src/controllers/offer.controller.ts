@@ -19,4 +19,26 @@ export const offerController = {
       sendSuccess(res, offer, 'Offer retrieved');
     } catch (err) { next(err); }
   },
+  async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = req.body;
+      if (!data.id) data.id = `o_${Date.now()}`;
+      const created = await offerRepository.create(data);
+      sendSuccess(res, created, 'Offer created', 201);
+    } catch (err) { next(err); }
+  },
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const updated = await offerRepository.update(req.params.id, req.body);
+      if (!updated) throw new NotFoundError('Offer not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, updated, 'Offer updated');
+    } catch (err) { next(err); }
+  },
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const ok = await offerRepository.delete(req.params.id);
+      if (!ok) throw new NotFoundError('Offer not found', ERROR_CODES.NOT_FOUND);
+      sendSuccess(res, null, 'Offer deleted');
+    } catch (err) { next(err); }
+  },
 };

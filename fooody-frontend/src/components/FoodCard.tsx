@@ -10,12 +10,22 @@ import { formatPrice } from '@/utils/helpers';
 import { useCartStore } from '@/store/cartStore';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useWishlistStore } from '@/store/wishlistStore';
+import { useToggleWishlist } from '@/hooks/useWishlist';
 
 export function FoodCard({ product, onPress }: { product: Product; onPress?: () => void }) {
   const cart = useCartStore();
   const qty = cart.items.find((i) => i.product.id === product.id)?.quantity ?? 0;
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const wishlistIds = useWishlistStore((s) => s.ids as Set<string>);
+  const isWishlisted = wishlistIds.has(product.id);
+  const toggleWishlist = useToggleWishlist();
+  const handleWishlist = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{});
+    toggleWishlist.mutate(product.id);
+  };
 
   return (
     <Pressable
@@ -30,6 +40,27 @@ export function FoodCard({ product, onPress }: { product: Product; onPress?: () 
         <View style={[styles.vegBox, { borderColor: product.isVeg ? colors.veg : colors.nonVeg }]}>
           <View style={[styles.vegDot, { backgroundColor: product.isVeg ? colors.veg : colors.nonVeg }]} />
         </View>
+        {/* Wishlist heart - with real toggle */}
+        <Pressable
+          hitSlop={hitSlop}
+          onPress={handleWishlist}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 30,
+            height: 30,
+            borderRadius: 15,
+            backgroundColor: isWishlisted ? 'rgba(255,90,61,0.92)' : 'rgba(0,0,0,0.42)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: isWishlisted ? colors.primary : 'rgba(255,255,255,0.15)',
+          }}
+          accessibilityLabel={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          <Ionicons name={isWishlisted ? 'heart' : 'heart-outline'} size={16} color="#fff" />
+        </Pressable>
         <View style={{ padding: spacing.md, gap: 6 }}>
           <Text numberOfLines={1} style={{ ...typography.h4, color: colors.textPrimary }}>{product.name}</Text>
           <Text numberOfLines={2} style={{ ...typography.bodySmall, color: colors.textSecondary }}>{product.description}</Text>
@@ -49,7 +80,7 @@ export function FoodCard({ product, onPress }: { product: Product; onPress?: () 
                 style={styles.addBtn}
                 accessibilityLabel={`Add ${product.name} to cart`}
               >
-                <Text style={{ color: colors.primary, ...typography.label }}>+ Add</Text>
+                <Text style={{ color: colors.textInverse, ...typography.label, fontWeight: '700' }}>+ Add</Text>
               </Pressable>
             ) : (
               <View style={styles.qtyBox}>
@@ -89,11 +120,12 @@ const styles = StyleSheet.create({
   vegDot: { width: 8, height: 8, borderRadius: 999 },
   addBtn: {
     paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: radius.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     borderWidth: 1,
     borderColor: colors.primary,
+    ...{ shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2 } as any,
   },
   qtyBox: {
     flexDirection: 'row',

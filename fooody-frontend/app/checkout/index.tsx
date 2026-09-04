@@ -9,7 +9,10 @@ import { shadows } from '@/theme/shadows';
 import { useCartStore } from '@/store/cartStore';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
-import { useCreateOrder, useAddresses } from '@/hooks/useCatalog';
+import { useCreateOrder, useAddresses, useSetDefaultAddress } from '@/hooks/useCatalog';
+import { useAddressStore } from '@/store/addressStore';
+import { useLocation } from '@/hooks/useLocation';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function Checkout() {
   const router = useRouter();
@@ -17,14 +20,49 @@ export default function Checkout() {
   const user = useAuthStore((s)=>s.user);
   const addressesQ = useAddresses();
   const createOrderM = useCreateOrder();
+  const setDefaultM = useSetDefaultAddress();
+  const loc = useLocation();
+  const selectedId = useAddressStore((s)=>s.selectedId);
+  const selectedAddress = useAddressStore((s)=>s.selectedAddress);
+  const setSelectedId = useAddressStore((s)=>s.setSelectedId);
+  // Hydrate store on load
+  React.useEffect(()=>{ if(addressesQ.data) useAddressStore.getState().hydrateFromApi(addressesQ.data); }, [addressesQ.data]);
   const [payment, setPayment] = React.useState<'cod'|'online'>('cod');
   const sub = subtotal();
   const delivery = 40; const tax = Math.round(sub*0.05); const total = sub+delivery+tax;
 
+  const effectiveAddress = selectedAddress || addressesQ.data?.find(a=>a.isDefault) || addressesQ.data?.[0] || null;
+
+  const onUseCurrentInCheckout = async () => {
+    const res = await loc.fetchCurrent();
+    if(res.coords && res.displayAddress){
+      router.push({
+        pathname: '/addresses/add',
+        params: {
+          lat: String(res.coords.lat),
+          lng: String(res.coords.lng),
+          autoAddress: res.displayAddress,
+          city: res.address?.city || '',
+          pincode: res.address?.postcode || '',
+          state: res.address?.state || '',
+          area: res.address?.road || res.address?.neighbourhood || '',
+        }
+      } as any);
+    }
+  };
+
   const placeOrder = async () => {
     if (!items.length) return;
+    if (!effectiveAddress) {
+      Alert.alert('Add address', 'Please add a delivery address first. We can autofill with your current location.', [
+        { text: 'Use current location', onPress: onUseCurrentInCheckout },
+        { text: 'Add manually', onPress: ()=> router.push('/addresses/add') },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+      return;
+    }
     if (createOrderM.isPending) return;
-    const addr = addressesQ.data?.[0] || null;
+    const addr = effectiveAddress;
     try {
       const order = await createOrderM.mutateAsync({
         items: items.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity, image: i.product.image })),
@@ -53,14 +91,66 @@ export default function Checkout() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }} showsVerticalScrollIndicator={false}>
-        {/* Address */}
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth:1, borderColor: colors.borderLight, gap: spacing.sm }}>
-          <Text style={{ ...typography.h4, color: colors.textPrimary }}>Delivery Address</Text>
-          <View style={{ borderWidth:1, borderColor: colors.primary, backgroundColor: colors.primaryMuted, borderRadius: radius.md, padding: spacing.md, gap: 4 }}>
-            <Text style={{ ...typography.label, color: colors.textPrimary }}>Home • {user?.name || 'Vishwa'}</Text>
-            <Text style={{ ...typography.bodySmall, color: colors.textSecondary }}>123, Green Park, New Delhi • +91 {user?.phone || '9876543210'}</Text>
+        {/* Address — REAL, Zomato style */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth:1, borderColor: colors.borderLight, gap: spacing.md }}>
+          <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+            <Text style={{ ...typography.h4, color: colors.textPrimary }}>Delivery Address</Text>
+            <Pressable onPress={()=>router.push('/addresses')}><Text style={{ ...typography.label, color: colors.primary }}>Change</Text></Pressable>
           </View>
-          <Pressable><Text style={{ ...typography.label, color: colors.primary }}>+ Add new address</Text></Pressable>
+
+          {addressesQ.isPending ? (
+            <View style={{ paddingVertical: 16, alignItems:'center' }}><Text style={{ ...typography.caption, color: colors.textSecondary }}>Loading addresses…</Text></View>
+          ) : effectiveAddress ? (
+            <>
+              {/* Selected/default card */}
+              <View style={{ borderWidth:1.5, borderColor: colors.primary, backgroundColor: colors.primaryMuted, borderRadius: radius.md, padding: spacing.md, gap: 6 }}>
+                <View style={{ flexDirection:'row', alignItems:'center', gap: 8 }}>
+                  <Ionicons name={effectiveAddress.label==='Home'?'home':effectiveAddress.label==='Work'?'briefcase':'location'} size={16} color={colors.primary} />
+                  <Text style={{ ...typography.label, color: colors.textPrimary }}>{effectiveAddress.label==='Other'&&effectiveAddress.customLabel?effectiveAddress.customLabel:effectiveAddress.label} {effectiveAddress.isDefault? '• Default' : ''} • {user?.name || 'You'}</Text>
+                  <View style={{ flex:1 }} />
+                  <View style={{ paddingHorizontal:8, paddingVertical:3, borderRadius:999, backgroundColor: colors.primary }}><Text style={{ ...typography.captionBold, color: colors.textInverse, fontSize:10 }}>SELECTED</Text></View>
+                </View>
+                <Text style={{ ...typography.bodySmall, color: colors.textPrimary }}>{[effectiveAddress.houseFlat, effectiveAddress.area, effectiveAddress.landmark, effectiveAddress.city, effectiveAddress.state, effectiveAddress.pincode].filter(Boolean).join(', ') || effectiveAddress.fullAddress || effectiveAddress.address}</Text>
+                {effectiveAddress.lat && effectiveAddress.lng ? <Text style={{ ...typography.caption, color: colors.textTertiary }}><Ionicons name="navigate" size={10}/> {effectiveAddress.lat.toFixed(5)}, {effectiveAddress.lng.toFixed(5)}</Text> : null}
+                {effectiveAddress.receiverPhone ? <Text style={{ ...typography.caption, color: colors.textSecondary }}>Receiver: {effectiveAddress.receiverName || user?.name} • {effectiveAddress.receiverPhone}</Text> : null}
+              </View>
+
+              {/* Other addresses quick-switch */}
+              {addressesQ.data && addressesQ.data.length>1 ? (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={{ ...typography.captionBold, color: colors.textSecondary }}>Other saved addresses</Text>
+                  {addressesQ.data.filter(a=>a.id!==effectiveAddress.id).slice(0,3).map(a=>(
+                    <Pressable key={a.id} onPress={async ()=>{ setSelectedId(a.id); try{ await setDefaultM.mutateAsync(a.id); }catch{} }} style={{ flexDirection:'row', alignItems:'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, borderWidth:1, borderColor: colors.borderLight, backgroundColor: colors.surfaceMuted }}>
+                      <Ionicons name={a.label==='Home'?'home':a.label==='Work'?'briefcase':'location-outline'} size={16} color={colors.textSecondary} />
+                      <View style={{ flex:1, gap:2 }}>
+                        <Text style={{ ...typography.captionBold, color: colors.textPrimary }}>{a.label==='Other'&&a.customLabel?a.customLabel:a.label} {a.isDefault? '• Default':''}</Text>
+                        <Text style={{ ...typography.caption, color: colors.textSecondary }} numberOfLines={1}>{[a.houseFlat,a.area,a.city].filter(Boolean).join(', ')||a.address}</Text>
+                      </View>
+                      <Text style={{ ...typography.captionBold, color: colors.primary }}>Deliver here</Text>
+                    </Pressable>
+                  ))}
+                  <Pressable onPress={()=>router.push('/addresses')}><Text style={{ ...typography.captionBold, color: colors.primary, textAlign:'center' }}>View all {addressesQ.data.length} addresses →</Text></Pressable>
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection:'row', gap: spacing.sm, flexWrap:'wrap' }}>
+                <Pressable onPress={()=>router.push('/addresses/add')} style={{ flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingVertical:8, borderRadius:999, borderWidth:1, borderColor: colors.border }}>
+                  <Ionicons name="add" size={14} color={colors.textPrimary} /><Text style={{ ...typography.captionBold, color: colors.textPrimary }}>Add new address</Text>
+                </Pressable>
+                <Pressable onPress={onUseCurrentInCheckout} style={{ flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:12, paddingVertical:8, borderRadius:999, backgroundColor: colors.primaryMuted, borderWidth:1, borderColor: colors.primaryLight }}>
+                  <Ionicons name="locate" size={14} color={colors.primary} /><Text style={{ ...typography.captionBold, color: colors.primary }}>{loc.isLoading?'Locating…':'Use current location'}</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <View style={{ borderWidth:1, borderColor: colors.border, borderStyle:'dashed' as any, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md, alignItems:'center' }}>
+              <Ionicons name="location-outline" size={28} color={colors.primary} />
+              <Text style={{ ...typography.label, color: colors.textPrimary, textAlign:'center' }}>No delivery address yet</Text>
+              <Text style={{ ...typography.caption, color: colors.textSecondary, textAlign:'center' }}>Add your location — we’ll ask for permission once and autofill your building, street & pincode like Zomato.</Text>
+              <Button title={loc.isLoading? 'Detecting…':'Use my current location'} onPress={onUseCurrentInCheckout} loading={loc.isLoading} style={{ width:'100%' }} />
+              <Pressable onPress={()=>router.push('/addresses/add')} style={{ paddingVertical: 6 }}><Text style={{ ...typography.label, color: colors.primary }}>Add address manually →</Text></Pressable>
+            </View>
+          )}
         </View>
 
         {/* Contact */}

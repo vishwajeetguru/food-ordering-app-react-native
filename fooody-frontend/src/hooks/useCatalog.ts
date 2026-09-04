@@ -56,3 +56,46 @@ export function useCreateOrder() {
 export function useAddresses() {
   return useQuery({ queryKey: ['addresses'], queryFn: () => addressApi.list().then(r => r.data ?? []) });
 }
+export function useDefaultAddress() {
+  return useQuery({ queryKey: ['addresses', 'default'], queryFn: () => addressApi.getDefault().then(r => r.data).catch(()=> null) });
+}
+export function useCreateAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => addressApi.create(data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      qc.invalidateQueries({ queryKey: ['addresses', 'default'] });
+    },
+  });
+}
+export function useUpdateAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => addressApi.update(id, data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      qc.invalidateQueries({ queryKey: ['addresses', 'default'] });
+    },
+  });
+}
+export function useDeleteAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => addressApi.delete(id).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      qc.invalidateQueries({ queryKey: ['addresses', 'default'] });
+    },
+  });
+}
+export function useSetDefaultAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => addressApi.setDefault(id).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['addresses'] });
+      qc.invalidateQueries({ queryKey: ['addresses', 'default'] });
+    },
+  });
+}

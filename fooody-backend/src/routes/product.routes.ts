@@ -30,9 +30,16 @@ const productSchema = z.object({
   tags: z.array(z.string()).optional(),
   isPopular: z.boolean().optional(),
   isRecommended: z.boolean().optional(),
+  available: z.boolean().optional(),
+  featured: z.boolean().optional(),
+  calories: z.number().int().min(0).optional(),
+  ingredients: z.array(z.string()).optional(),
+  allergens: z.array(z.string()).optional(),
 });
 
 router.post('/', authenticate, requireRole('admin'), validate(productSchema), productController.create);
 router.patch('/:id', authenticate, requireRole('admin'), validate(productIdParamSchema, 'params'), validate(productSchema.partial().strip()), productController.update);
+router.delete('/:id', authenticate, requireRole('admin'), validate(productIdParamSchema, 'params'), productController.delete);
+router.post('/:id/duplicate', authenticate, requireRole('admin'), validate(productIdParamSchema, 'params'), productController.duplicate);
 
 export default router;

@@ -15,6 +15,16 @@ export interface Restaurant {
   cuisines: string[];
   about: string;
   createdAt: string;
+  updatedAt?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  openingHours?: string;
+  closingHours?: string;
+  isOpen?: boolean;
+  deliveryCharge?: number;
+  minOrderAmount?: number;
+  taxRate?: number;
 }
 
 const DEFAULT_ID = 'default';
@@ -54,14 +64,37 @@ export const restaurantRepository = {
     }
   },
   async create(data: Omit<Restaurant, 'createdAt'>): Promise<Restaurant> {
-    const r: Restaurant = { ...data, createdAt: new Date().toISOString() };
-    if (shouldUseMemory()) return r;
+    const r: Restaurant = { ...data, createdAt: new Date().toISOString() } as Restaurant;
+    if (shouldUseMemory()) {
+      Object.assign(memoryRestaurant, r);
+      return r;
+    }
     try {
       await getFirestore().collection(COLLECTIONS.RESTAURANTS).doc(r.id).set(r);
+      Object.assign(memoryRestaurant, r);
       return r;
     } catch (e: any) {
       logger.warn('restaurantRepository.create fallback memory', { error: e.message });
+      Object.assign(memoryRestaurant, r);
       return r;
+    }
+  },
+  async update(id: string, patch: Partial<Restaurant>): Promise<Restaurant | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() } as Restaurant;
+    if (shouldUseMemory()) {
+      if (id === DEFAULT_ID) Object.assign(memoryRestaurant, updated);
+      return updated;
+    }
+    try {
+      await getFirestore().collection(COLLECTIONS.RESTAURANTS).doc(id).set(updated, { merge: true });
+      if (id === DEFAULT_ID) Object.assign(memoryRestaurant, updated);
+      return updated;
+    } catch (e: any) {
+      logger.warn('restaurantRepository.update fallback', { error: e.message });
+      if (id === DEFAULT_ID) Object.assign(memoryRestaurant, updated);
+      return updated;
     }
   },
 };

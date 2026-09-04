@@ -35,7 +35,10 @@ router.post('/reset-password', authLimiter, validate(resetPasswordSchema), authC
 router.post('/set-password', authenticate, validate(setPasswordSchema), authController.setPassword);
 router.post('/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);
 
-// Current user & session
+ // Admin login — email + password, returns customToken + user (works in both mock and Firebase modes)
+router.post('/admin-login', authLimiter, authController.adminLogin);
+
+ // Current user & session
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 

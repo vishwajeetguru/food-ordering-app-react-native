@@ -38,18 +38,19 @@ export default function Profile() {
             <Text style={{ ...typography.bodySmall, color: colors.textSecondary }}>{user?.email || 'test@example.com'}</Text>
             <Text style={{ ...typography.caption, color: colors.success }}>✓ Verified • {user?.role || 'customer'}</Text>
           </View>
-          <Pressable onPress={() => Alert.alert('Coming soon', 'Edit profile will be available soon')} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}>
+          <Pressable onPress={() => router.push('/profile/edit' as any)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ ...typography.captionBold, color: colors.textPrimary }}>Edit</Text>
           </Pressable>
         </Animated.View>
 
         {[
           { icon: '📦', label: 'My Orders', sub: 'Track and reorder', onPress: () => router.push('/(tabs)/orders') },
-          { icon: '📍', label: 'Saved Addresses', sub: 'Home, Work and more' },
-          { icon: '♡', label: 'Favorites', sub: 'Your beloved dishes' },
-          { icon: '🔔', label: 'Notifications', sub: 'Offers and updates' },
-          { icon: '❓', label: 'Help & Support', sub: 'FAQs and contact' },
-          { icon: 'ℹ️', label: 'About', sub: 'Foody v1.0.0 • Single kitchen' },
+          { icon: '📍', label: 'Saved Addresses', sub: 'Home, Work and more', onPress: () => router.push('/addresses') },
+          { icon: '♡', label: 'Favorites', sub: 'Your beloved dishes', onPress: () => router.push('/favourites' as any) },
+          { icon: '🔔', label: 'Notifications', sub: 'Offers and updates', onPress: () => router.push('/notifications' as any) },
+          { icon: '❓', label: 'Help & Support', sub: 'FAQs and contact', onPress: () => router.push('/support' as any) },
+          { icon: 'ℹ️', label: 'About', sub: 'Foody v1.0.0 • Single kitchen', onPress: () => router.push('/about' as any) },
+          ...(user?.role==='admin' ? [{ icon: '🛡️', label: 'Admin Panel', sub: 'Manage users, orders, tickets', onPress: () => router.push('/admin' as any) } as any] : []),
         ].map((it, i) => (
           <Animated.View key={it.label} entering={FadeInUp.delay(140 + i * 60).duration(400)}>
             <Pressable onPress={it.onPress || (() => Alert.alert('Coming soon', `${it.label} will be available soon`))} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.borderLight }}>

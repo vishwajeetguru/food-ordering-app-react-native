@@ -51,5 +51,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await authService.logout();
     set({ user: null, idToken: null, isAuthenticated: false });
+    // clear persisted address selection (privacy + avoid cross-user leak)
+    try {
+      const { useAddressStore } = await import('./addressStore');
+      useAddressStore.getState().clear();
+    } catch {}
+    setAuthToken(null);
   },
 }));

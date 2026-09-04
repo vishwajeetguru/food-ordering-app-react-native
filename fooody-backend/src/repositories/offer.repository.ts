@@ -13,6 +13,16 @@ export interface Offer {
   tag: string;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  minOrderAmount?: number;
+  maxDiscount?: number;
+  startDate?: string;
+  endDate?: string;
+  usageLimit?: number;
+  bannerImage?: string;
+  description?: string;
 }
 
 const memoryOffers = new Map<string, Offer>();
@@ -59,7 +69,7 @@ export const offerRepository = {
     }
   },
   async create(data: Omit<Offer, 'createdAt'>): Promise<Offer> {
-    const o: Offer = { ...data, createdAt: nowISO() };
+    const o: Offer = { ...data, createdAt: nowISO() } as Offer;
     if (shouldUseMemory()) { memoryOffers.set(o.id, o); return o; }
     try {
       await getFirestore().collection(COLLECTIONS.OFFERS).doc(o.id).set(o);
@@ -68,6 +78,34 @@ export const offerRepository = {
       logger.warn('offerRepository.create fallback memory', { error: e.message });
       memoryOffers.set(o.id, o);
       return o;
+    }
+  },
+  async update(id: string, patch: Partial<Offer>): Promise<Offer | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...patch, updatedAt: nowISO() } as Offer;
+    if (shouldUseMemory()) { memoryOffers.set(id, updated); return updated; }
+    try {
+      await getFirestore().collection(COLLECTIONS.OFFERS).doc(id).set(updated, { merge: true });
+      return updated;
+    } catch (e: any) {
+      logger.warn('offerRepository.update fallback', { error: e.message });
+      memoryOffers.set(id, updated);
+      return updated;
+    }
+  },
+  async delete(id: string): Promise<boolean> {
+    const existing = await this.getById(id);
+    if (!existing) return false;
+    if (shouldUseMemory()) { memoryOffers.delete(id); return true; }
+    try {
+      await getFirestore().collection(COLLECTIONS.OFFERS).doc(id).delete();
+      memoryOffers.delete(id);
+      return true;
+    } catch (e: any) {
+      logger.warn('offerRepository.delete fallback', { error: e.message });
+      memoryOffers.delete(id);
+      return true;
     }
   },
 };

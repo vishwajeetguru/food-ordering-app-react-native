@@ -9,10 +9,15 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foody.app"
+      "bundleIdentifier": "com.foody.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby restaurants and deliver to your exact address.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to save your delivery address accurately."
+      }
     },
     "android": {
       "package": "com.foody.app",
+      "permissions": ["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION", "android.permission.FOREGROUND_SERVICE"],
       "adaptiveIcon": {
         "backgroundColor": "#FF5A3D",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -30,6 +35,15 @@
       "expo-font",
       "expo-web-browser",
       "expo-image",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Foody to use your location to deliver food to your doorstep.",
+          "locationAlwaysPermission": "Allow Foody to use your location to save your address.",
+          "locationWhenInUsePermission": "Allow Foody to use your location to find nearby restaurants."
+        }
+      ],
       [
         "expo-splash-screen",
         {

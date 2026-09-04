@@ -32,7 +32,8 @@ app.use(
     origin: isWildcard ? '*' : corsOrigins.split(',').map((o) => o.trim()),
     credentials: !isWildcard, // credentials:true with * is invalid; disable when wildcard
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'X-Requested-With', 'Accept', 'Origin', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
   })
 );
 

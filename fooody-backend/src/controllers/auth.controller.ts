@@ -174,4 +174,19 @@ export const authController = {
       next(err);
     }
   },
+
+  // Admin login — email + password, returns customToken + user. Works in both mock and Firebase modes.
+  // For production, also accepts Firebase ID token directly via Authorization header (handled by /auth/me).
+  async adminLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        const { BadRequestError } = await import('../utils/errors');
+        const { ERROR_CODES } = await import('../config/constants');
+        throw new BadRequestError('Email and password required', ERROR_CODES.BAD_REQUEST);
+      }
+      const result = await authService.adminLogin(email, password);
+      sendSuccess(res, result, 'Admin login successful');
+    } catch (err) { next(err); }
+  },
 };

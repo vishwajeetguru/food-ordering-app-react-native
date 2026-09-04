@@ -75,11 +75,48 @@ export interface Order {
 
 export interface Address {
   id: string;
+  userId?: string;
   label: 'Home' | 'Work' | 'Other';
+  customLabel?: string;
   address: string;
+  fullAddress?: string;
+  houseFlat?: string;
+  floor?: string;
+  landmark?: string;
+  area?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   details?: string;
   lat?: number;
   lng?: number;
+  isDefault?: boolean;
+  receiverName?: string;
+  receiverPhone?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReverseGeocodeResult {
+  displayName: string;
+  formattedAddress: string;
+  houseNumber: string;
+  road: string;
+  neighbourhood: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  lat: number;
+  lng: number;
+}
+
+export interface GeocodeSearchResult {
+  displayName: string;
+  lat: number;
+  lng: number;
+  city: string;
+  postcode: string;
 }
 
 export interface Restaurant {
@@ -117,6 +154,42 @@ export interface HomeData {
     all: Product[];
   };
   offers: Offer[];
+}
+
+export interface WishlistItem {
+  id: string;
+  userId: string;
+  productId: string;
+  createdAt: string;
+  product?: Product | null;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string | null;
+  title: string;
+  body: string;
+  type: 'promo' | 'order' | 'system' | 'support' | 'general';
+  data?: Record<string, any>;
+  read: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string;
+  subject: string;
+  description: string;
+  category: 'order' | 'payment' | 'delivery' | 'general' | 'account' | 'other';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+  updatedAt: string;
+  messages: { by: 'user' | 'admin'; byId: string; byName: string | null; message: string; at: string }[];
+  orderId?: string | null;
 }
 
 export interface ApiResponse<T> {

@@ -20,6 +20,11 @@ export interface Product {
   tags?: string[];
   isPopular?: boolean;
   isRecommended?: boolean;
+  available?: boolean;
+  featured?: boolean;
+  calories?: number;
+  ingredients?: string[];
+  allergens?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -119,5 +124,27 @@ export const productRepository = {
       memoryProducts.set(id, updated);
       return updated;
     }
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const existing = await this.getById(id);
+    if (!existing) return false;
+    if (shouldUseMemory()) { memoryProducts.delete(id); return true; }
+    try {
+      await getFirestore().collection(COLLECTIONS.PRODUCTS).doc(id).delete();
+      memoryProducts.delete(id);
+      return true;
+    } catch (e: any) {
+      logger.warn('productRepository.delete fallback', { error: e.message });
+      memoryProducts.delete(id);
+      return true;
+    }
+  },
+
+  async duplicate(id: string): Promise<Product | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const copy: Product = { ...existing, id: `p_${Date.now()}`, name: `${existing.name} (Copy)`, createdAt: nowISO(), updatedAt: nowISO() };
+    return this.create(copy as any);
   },
 };

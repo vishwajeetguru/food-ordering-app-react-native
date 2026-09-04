@@ -9,7 +9,11 @@ export interface Category {
   slug: string;
   image: string;
   count?: number;
+  description?: string;
+  displayOrder?: number;
+  active?: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 const memoryCategories = new Map<string, Category>();
@@ -49,7 +53,7 @@ export const categoryRepository = {
     }
   },
   async create(data: Omit<Category, 'createdAt'>): Promise<Category> {
-    const cat: Category = { ...data, createdAt: nowISO() };
+    const cat: Category = { ...data, createdAt: nowISO() } as Category;
     if (shouldUseMemory()) { memoryCategories.set(cat.id, cat); return cat; }
     try {
       await getFirestore().collection(COLLECTIONS.CATEGORIES).doc(cat.id).set(cat);
@@ -58,6 +62,34 @@ export const categoryRepository = {
       logger.warn('categoryRepository.create fallback memory', { error: e.message });
       memoryCategories.set(cat.id, cat);
       return cat;
+    }
+  },
+  async update(id: string, patch: Partial<Category>): Promise<Category | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...patch, updatedAt: nowISO() } as Category;
+    if (shouldUseMemory()) { memoryCategories.set(id, updated); return updated; }
+    try {
+      await getFirestore().collection(COLLECTIONS.CATEGORIES).doc(id).set(updated, { merge: true });
+      return updated;
+    } catch (e: any) {
+      logger.warn('categoryRepository.update fallback', { error: e.message });
+      memoryCategories.set(id, updated);
+      return updated;
+    }
+  },
+  async delete(id: string): Promise<boolean> {
+    const existing = await this.getById(id);
+    if (!existing) return false;
+    if (shouldUseMemory()) { memoryCategories.delete(id); return true; }
+    try {
+      await getFirestore().collection(COLLECTIONS.CATEGORIES).doc(id).delete();
+      memoryCategories.delete(id);
+      return true;
+    } catch (e: any) {
+      logger.warn('categoryRepository.delete fallback', { error: e.message });
+      memoryCategories.delete(id);
+      return true;
     }
   },
 };
