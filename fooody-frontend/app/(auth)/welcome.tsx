@@ -59,7 +59,10 @@ export default function Welcome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFBF5' }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 12 }} showsVerticalScrollIndicator={false} bounces={false}>
+      {/* Bottom blobs */}
+      <View style={{ position: 'absolute', bottom: -60, left: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: '#FFF0E8', opacity: 0.6 }} />
+      <View style={{ position: 'absolute', bottom: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFF0E8', opacity: 0.5 }} />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 8 }} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Top hero with logo, headline, burger */}
         <View style={{ paddingTop: spacing.md, overflow: 'hidden' }}>
           {/* soft pink blob top right */}
@@ -79,10 +82,13 @@ export default function Welcome() {
           <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.lg, width: '62%' }}>
             <Text style={{ fontSize: 36, lineHeight: 38, fontWeight: '900', color: '#0F172A', letterSpacing: -0.8 }}>
               Delicious{'\n'}Food,{' '}
-              <Text style={{ color: '#9A3412' }}>Right</Text>
+              <Text style={{ color: '#EA580C' }}>Right</Text>
             </Text>
             <Text style={{ fontSize: 36, lineHeight: 38, fontWeight: '900', color: '#EA580C', letterSpacing: -0.8 }}>
-              at Your Doorstep
+              at Your
+            </Text>
+            <Text style={{ fontSize: 42, lineHeight: 44, fontWeight: '900', color: '#EA580C', letterSpacing: -0.8 }}>
+              Doorstep
             </Text>
             <Text style={{ ...typography.bodySmall, color: '#64748B', marginTop: spacing.sm, lineHeight: 20 }}>
               Fresh meals. Great taste.{'\n'}Happier days.
@@ -94,7 +100,7 @@ export default function Welcome() {
             {[
               { icon: 'restaurant' as const, bg: '#FFE9E8', color: '#EF4444', label1: 'Freshly', label2: 'Prepared' },
               { icon: 'bicycle' as const, bg: '#E6F7ED', color: '#10B981', label1: 'Fast', label2: 'Delivery' },
-              { icon: 'heart' as const, bg: '#FFF2E0', color: '#F97316', label1: 'Quality', label2: 'You Can Trust' },
+              { icon: 'shield-checkmark' as const, bg: '#FFF2E0', color: '#F59E0B', label1: 'Quality', label2: 'You Can Trust' },
             ].map((f) => (
               <View key={f.label2} style={{ alignItems: 'center', gap: 8, flex: 1 }}>
                 <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: f.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }}>
