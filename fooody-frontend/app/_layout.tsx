@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { Alert } from 'react-native';
+import { Alert, View, Text } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useWishlist } from '@/hooks/useWishlist';
 import { usePushRegistration, useNotifications } from '@/hooks/useNotifications';
@@ -110,7 +110,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, segments]);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFBF5' }}>
+        <Text style={{ color: '#FF5A3D', fontWeight: '700' }}>Loading Foody...</Text>
+      </View>
+    );
+  }
   return (
     <>
       <GlobalWishlistLoader />
@@ -124,13 +130,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const [loaded] = useFonts({});
-  const isAuthLoading = useAuthStore((s) => s.isLoading);
 
   React.useEffect(() => {
-    if (loaded && !isAuthLoading) SplashScreen.hideAsync().catch(() => {});
-  }, [loaded, isAuthLoading]);
+    if (loaded) SplashScreen.hideAsync().catch(() => {});
+  }, [loaded]);
 
-  if (!loaded || isAuthLoading) return null;
+  if (!loaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
