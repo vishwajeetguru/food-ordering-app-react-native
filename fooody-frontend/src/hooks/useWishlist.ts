@@ -16,7 +16,8 @@ export function useWishlist() {
       return items;
     },
     enabled: isAuthenticated,
-    staleTime: 30000,
+    staleTime: 10000,
+    refetchInterval: 8000,
   });
 }
 

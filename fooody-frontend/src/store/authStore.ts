@@ -30,12 +30,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!token) { set({ isLoading: false, isAuthenticated: false }); return; }
       setAuthToken(token);
       set({ idToken: token });
+      // Try to fetch user profile, but don't block longer than 4s — keep Firebase session on network failure
+      const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
       try {
-        const res = await userApi.me();
-        set({ user: res.data as User, isAuthenticated: true, idToken: token });
+        const res = await withTimeout(userApi.me(), 4000);
+        set({ user: (res as any).data as User, isAuthenticated: true, idToken: token });
       } catch (e) {
-        console.warn('[auth] restore: userApi.me failed, keeping session', e);
-        // Keep authenticated if Firebase user exists (network/backend may be unreachable in Expo Go)
+        console.warn('[auth] restore: userApi.me failed or timed out, keeping session', e);
         try {
           const fbUser = (await import('@/services/firebase')).getFirebaseAuth()?.currentUser;
           if (fbUser) {

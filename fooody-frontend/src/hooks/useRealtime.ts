@@ -44,14 +44,17 @@ export function useMaintenance() {
   const rest = useQuery({
     queryKey: ['settings'],
     queryFn: () => settingsApi.get().then(r => (r.data as any)),
-    refetchInterval: 10000,
-    staleTime: 5000,
+    refetchInterval: 5000,
+    staleTime: 2000,
     retry: 1,
   });
-  // Prefer realtime when Firestore is available (not loading), otherwise REST
-  if (!realtime.loading) return { maintenanceMode: realtime.maintenanceMode, maintenanceMessage: realtime.maintenanceMessage, isLoading: false, isRealtime: true };
-  const data: any = rest.data;
-  return { maintenanceMode: !!data?.maintenanceMode, maintenanceMessage: data?.maintenanceMessage || '', isLoading: rest.isLoading, isRealtime: false };
+  const restData: any = rest.data;
+  // Robust: maintenance is ON if either realtime Firestore or REST says so (covers Firestore not configured / rules lag)
+  const maintenanceMode = realtime.maintenanceMode || !!restData?.maintenanceMode;
+  const maintenanceMessage = realtime.maintenanceMode ? realtime.maintenanceMessage : restData?.maintenanceMessage || realtime.maintenanceMessage || '';
+  const isLoading = realtime.loading && rest.isLoading;
+  const isRealtime = !realtime.loading;
+  return { maintenanceMode, maintenanceMessage, isLoading, isRealtime };
 }
 
 // Orders: invalidate ['orders'] and ['order', id] when orders change
@@ -109,4 +112,75 @@ export function useRealtimeNotifications(enabled = true) {
     });
     return () => { try { unsub?.(); } catch {} };
   }, [enabled, uid, qc]);
+}
+
+// Catalog & content realtime (public) + user collections
+export function useRealtimeCatalog(enabled = true) {
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (!enabled) return;
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    const subs: any[] = [];
+    subs.push(safeOnSnapshot(collection(db, 'products'), () => { qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['product'] }); qc.invalidateQueries({ queryKey: ['home'] }); }));
+    subs.push(safeOnSnapshot(collection(db, 'categories'), () => { qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['home'] }); }));
+    subs.push(safeOnSnapshot(collection(db, 'offers'), () => { qc.invalidateQueries({ queryKey: ['offers'] }); qc.invalidateQueries({ queryKey: ['home'] }); }));
+    subs.push(safeOnSnapshot(collection(db, 'restaurants'), () => { qc.invalidateQueries({ queryKey: ['restaurant'] }); qc.invalidateQueries({ queryKey: ['home'] }); }));
+    subs.push(safeOnSnapshot(collection(db, 'banners'), () => { qc.invalidateQueries({ queryKey: ['banners'] }); qc.invalidateQueries({ queryKey: ['home'] }); }));
+    subs.push(safeOnSnapshot(doc(db, 'settings', 'app'), () => { qc.invalidateQueries({ queryKey: ['home'] }); qc.invalidateQueries({ queryKey: ['settings'] }); }));
+    return () => subs.forEach(u => { try { (u as any)?.(); } catch {} });
+  }, [enabled, qc]);
+}
+
+export function useRealtimeWishlist(enabled = true) {
+  const qc = useQueryClient();
+  const uid = useAuthStore(s => s.user?.id);
+  React.useEffect(() => {
+    if (!enabled || !uid) return;
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    const q = query(collection(db, 'wishlists'), where('userId', '==', uid));
+    const unsub: any = safeOnSnapshot(q, () => { qc.invalidateQueries({ queryKey: ['wishlist'] }); qc.invalidateQueries({ queryKey: ['wishlist', uid] }); });
+    return () => { try { unsub?.(); } catch {} };
+  }, [enabled, uid, qc]);
+}
+
+export function useRealtimeAddresses(enabled = true) {
+  const qc = useQueryClient();
+  const uid = useAuthStore(s => s.user?.id);
+  React.useEffect(() => {
+    if (!enabled || !uid) return;
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    const q = query(collection(db, 'addresses'), where('userId', '==', uid));
+    const unsub: any = safeOnSnapshot(q, () => { qc.invalidateQueries({ queryKey: ['addresses'] }); qc.invalidateQueries({ queryKey: ['addresses', 'default'] }); });
+    return () => { try { unsub?.(); } catch {} };
+  }, [enabled, uid, qc]);
+}
+
+export function useRealtimeTickets(enabled = true) {
+  const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const uid = user?.id;
+  const role = (user as any)?.role;
+  React.useEffect(() => {
+    if (!enabled || !uid) return;
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    let unsub: any;
+    if (role === 'admin') {
+      unsub = safeOnSnapshot(collection(db, 'tickets'), () => { qc.invalidateQueries({ queryKey: ['tickets'] }); qc.invalidateQueries({ queryKey: ['my-tickets'] }); });
+    } else {
+      const q = query(collection(db, 'tickets'), where('userId', '==', uid));
+      unsub = safeOnSnapshot(q, () => { qc.invalidateQueries({ queryKey: ['tickets'] }); qc.invalidateQueries({ queryKey: ['my-tickets'] }); qc.invalidateQueries({ queryKey: ['ticket'] }); });
+    }
+    return () => { try { (unsub as any)?.(); } catch {} };
+  }, [enabled, uid, role, qc]);
+}
+
+export function useRealtimeApp(enabled = true) {
+  useRealtimeCatalog(enabled);
+  useRealtimeWishlist(enabled);
+  useRealtimeAddresses(enabled);
+  useRealtimeTickets(enabled);
 }

@@ -121,11 +121,6 @@ export default function Settings() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const logo = watch('logo');
-  const image = watch('image');
-
-  if (isLoading) return <Skeleton className="h-[600px]" />;
-
   const { data: appSettings } = useQuery({
     queryKey: ['app-settings'],
     queryFn: async () => (await api.get('/admin/settings')).data.data,
@@ -139,6 +134,11 @@ export default function Settings() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const logo = watch('logo');
+  const image = watch('image');
+
+  if (isLoading) return <Skeleton className="h-[600px]" />;
 
   return (
     <div className="space-y-4 max-w-4xl">

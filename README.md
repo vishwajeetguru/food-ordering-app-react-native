@@ -23,7 +23,7 @@ You **can use this project for commercial use** — the only deal is:
 
 ### 📱 Customer App (`fooody-frontend` — Expo 57)
 
-- **Auth:** Email OTP (backend SMTP), Magic Link, Email + Password, Google Sign-In (expo-auth-session), Phone OTP with searchable country picker + invisible reCAPTCHA (Expo Go via WebView), SecureStore + Firebase ID Tokens, Session restore & AuthGate
+- **Auth:** Email OTP (backend SMTP), Magic Link, Email + Password, Google Sign-In (expo-auth-session), Phone OTP with searchable country picker + invisible reCAPTCHA (Expo Go via WebView), SecureStore + Firebase ID Tokens, Session restore & AuthGate, silent single-flight ID-token auto-refresh on 401 with one retry
 - **Home:** TopBar (search + avatar), greeting, delivering-to, banner, categories, Popular Today (4), Recommended (API), Offers carousel, restaurant CTA, pull-to-refresh
 - **Menu:** Restaurant hero + info card, category chips (API), product grid filtered by category
 - **Search:** Reusable `SearchBar` + category filter chips (search within category or all), debounced (300ms), recent searches, results
@@ -31,6 +31,7 @@ You **can use this project for commercial use** — the only deal is:
 - **Cart & Checkout:** Zustand + AsyncStorage (local-first) + Zomato-style floating cart bar above tabs, delivery fee/tax/discount/total, address, contact, coupon, COD/Online placeholder, `POST /orders`
 - **Orders:** Active (pending/preparing/out_for_delivery) / Past (delivered/cancelled) tabs, status badge, `GET /orders`, Order detail with animated tracker (Placed → Preparing → Out for delivery → Delivered) or cancelled state
 - **Profile & Extras:** Profile, Edit Profile, Addresses (list/add), Favourites/Wishlist, Notifications (unread badge), Support (tickets: list/new/detail + admin replies), About
+- **Maintenance mode:** Admin toggle → realtime full-screen block in the customer app (admins bypassed), plus server-side order block; resolves via Firestore listener with REST polling fallback
 - **UI:** Bottom tabs (Home, Menu, Offers, Orders), Ionicons, Reanimated 4.5, LinearGradient, Haptics, 8-point grid, skeleton/empty/error states, `GreetingHeader`, `DeliveryLocationBar`
 
 ### 🖥️ Admin Dashboard (`fooody-admin` — Vite + React 19)
@@ -343,6 +344,7 @@ SDK 57 requires **Node 22.13+**, **Xcode 26.4+** (iOS 16.4+), **Android compile/
 | `PushNotificationIOS` / `native module doesn't exist` (Expo Go) | Fixed via `metro.config.js` mock + `src/mocks/PushNotificationIOS.mock.js`; push uses mock tokens in Expo Go. For real push, create a dev build: `npx expo prebuild && npx expo run:ios` |
 | `tsc` baseUrl deprecation (TS 6) | Already fixed via `ignoreDeprecations: 6.0` |
 | Reanimated `strict` mode warning | Disabled via `configureReanimatedLogger({strict:false})` in `app/_layout.tsx:8` |
+| Repeated `TOKEN_EXPIRED` / orders fail to load | Client auto-refreshes the ID token (single-flight) and retries once; fail-fast 8s timeout with Retry button. If it persists, logout/login once to reseed SecureStore |
 
 ---
 

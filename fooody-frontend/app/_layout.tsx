@@ -11,7 +11,7 @@ import { Alert, View, Text } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useWishlist } from '@/hooks/useWishlist';
 import { usePushRegistration, useNotifications } from '@/hooks/useNotifications';
-import { useRealtimeOrders, useRealtimeNotifications } from '@/hooks/useRealtime';
+import { useRealtimeOrders, useRealtimeNotifications, useRealtimeApp } from '@/hooks/useRealtime';
 import { MaintenanceGate } from '@/components/MaintenanceGate';
 
 configureReanimatedLogger({
@@ -22,7 +22,7 @@ configureReanimatedLogger({
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 1000 * 60 } },
+  defaultOptions: { queries: { retry: 0, staleTime: 1000 * 30, gcTime: 1000 * 60 * 5 } },
 });
 
 function GlobalWishlistLoader() {
@@ -46,6 +46,7 @@ function RealtimeBootstrap() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   useRealtimeOrders(isAuthenticated);
   useRealtimeNotifications(isAuthenticated);
+  useRealtimeApp(isAuthenticated);
   return null;
 }
 

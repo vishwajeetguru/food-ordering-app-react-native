@@ -43,7 +43,35 @@ export const authService = {
   },
 
   async restoreSession() {
-    return this.getStoredToken();
+    // Prefer Firebase auth-state (fresh token). If SecureStore token is expired (JWT exp < now),
+    // don't return it — avoid the 401 TOKEN_EXPIRED loop; authState listener / refresh handles it.
+    try {
+      const auth = getFirebaseAuth();
+      if (auth) {
+        const user = await new Promise<any>((resolve) => {
+          const unsub = auth.onAuthStateChanged((u) => { unsub(); resolve(u); });
+          setTimeout(() => { unsub(); resolve(auth.currentUser ?? null); }, 2000);
+        });
+        if (user) {
+          const token = await user.getIdToken(true);
+          await this.persistIdToken(token);
+          return token;
+        }
+      }
+    } catch {}
+    const stored = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (!stored) return null;
+    try {
+      const b64 = (stored.split('.')[1] ?? '').replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(globalThis.atob(b64));
+      if (payload?.exp && payload.exp * 1000 < Date.now()) {
+        // Stored token expired — clear it so login flow starts clean
+        await this.clearToken();
+        return null;
+      }
+    } catch {}
+    setAuthToken(stored);
+    return stored;
   },
 
   async logout() {
