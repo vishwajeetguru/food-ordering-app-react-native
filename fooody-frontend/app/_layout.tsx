@@ -7,9 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { Alert } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useWishlist } from '@/hooks/useWishlist';
-import { usePushRegistration } from '@/hooks/useNotifications';
+import { usePushRegistration, useNotifications } from '@/hooks/useNotifications';
+import { useRealtimeOrders, useRealtimeNotifications } from '@/hooks/useRealtime';
+import { MaintenanceGate } from '@/components/MaintenanceGate';
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -39,6 +42,57 @@ function PushBootstrap() {
   return null;
 }
 
+function RealtimeBootstrap() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  useRealtimeOrders(isAuthenticated);
+  useRealtimeNotifications(isAuthenticated);
+  return null;
+}
+
+function RealtimeToasts() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const notifQ = useNotifications(20);
+  const seenRef = React.useRef<Set<string>>(new Set());
+  const isFirstLoad = React.useRef(true);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !notifQ.data) return;
+    const raw: any = notifQ.data as any;
+    const list: any[] = Array.isArray(raw) ? raw : raw.notifications ?? [];
+    // On first load, mark all as seen without toast
+    if (isFirstLoad.current) {
+      list.forEach((n: any) => seenRef.current.add(n.id));
+      isFirstLoad.current = false;
+      return;
+    }
+    // Find new unread notifications created in last 20s
+    const now = Date.now();
+    const newOnes = list.filter((n: any) => !seenRef.current.has(n.id) && !n.read && new Date(n.createdAt).getTime() > now - 20000);
+    newOnes.forEach((n: any) => {
+      seenRef.current.add(n.id);
+      // Don't toast for the customer's own "Order placed" immediately after they placed it (they already saw success)
+      // But do toast for status updates and for admin new orders
+      const isAdmin = (user as any)?.role === 'admin';
+      if (n.type === 'order') {
+        if (isAdmin && n.title?.includes('New order')) {
+          Alert.alert(n.title, n.body);
+        } else if (!isAdmin && n.title?.includes('Order update')) {
+          Alert.alert(n.title, n.body);
+        } else if (!isAdmin && n.data?.status && n.data.status !== 'pending') {
+          Alert.alert(n.title, n.body);
+        }
+      } else if (n.type === 'promo' || n.type === 'support' || n.type === 'general') {
+        Alert.alert(n.title, n.body);
+      }
+    });
+    // Mark all current as seen for next diff
+    list.forEach((n: any) => seenRef.current.add(n.id));
+  }, [notifQ.data, isAuthenticated, user]);
+
+  return null;
+}
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, restore } = useAuthStore();
   const segments = useSegments();
@@ -61,19 +115,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     <>
       <GlobalWishlistLoader />
       <PushBootstrap />
-      {children}
+      <RealtimeBootstrap />
+      <RealtimeToasts />
+      <MaintenanceGate>{children}</MaintenanceGate>
     </>
   );
 }
 
 export default function RootLayout() {
   const [loaded] = useFonts({});
+  const isAuthLoading = useAuthStore((s) => s.isLoading);
 
   React.useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+    if (loaded && !isAuthLoading) SplashScreen.hideAsync().catch(() => {});
+  }, [loaded, isAuthLoading]);
 
-  if (!loaded) return null;
+  if (!loaded || isAuthLoading) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

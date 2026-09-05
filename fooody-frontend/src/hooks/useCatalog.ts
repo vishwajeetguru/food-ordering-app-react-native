@@ -36,12 +36,13 @@ export function useHome() {
 }
 
 // Orders --------------------------------------------------------
+// Polling fallback (7s) when Firestore realtime not available or not configured
 
 export function useOrders() {
-  return useQuery({ queryKey: ['orders'], queryFn: () => orderApi.list().then(r => r.data ?? []) });
+  return useQuery({ queryKey: ['orders'], queryFn: () => orderApi.list().then(r => r.data ?? []), refetchInterval: 7000, staleTime: 3000 });
 }
 export function useOrder(id: string, enabled = true) {
-  return useQuery({ queryKey: ['order', id], queryFn: () => orderApi.get(id).then(r => r.data), enabled: !!id && enabled });
+  return useQuery({ queryKey: ['order', id], queryFn: () => orderApi.get(id).then(r => r.data), enabled: !!id && enabled, refetchInterval: 5000 });
 }
 export function useCreateOrder() {
   const qc = useQueryClient();

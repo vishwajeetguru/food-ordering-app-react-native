@@ -47,3 +47,7 @@ export const offerApi = {
 export const homeApi = {
   get: () => api.get<ApiResponse<HomeData>>('/home'),
 };
+
+export const settingsApi = {
+  get: () => api.get<ApiResponse<{ maintenanceMode: boolean; maintenanceMessage: string; home: any; bannersEnabled: boolean }>>('/settings'),
+};

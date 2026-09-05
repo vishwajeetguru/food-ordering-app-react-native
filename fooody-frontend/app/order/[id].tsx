@@ -21,6 +21,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { shadows } from '@/theme/shadows';
 import { useOrder } from '@/hooks/useCatalog';
+import { useRealtimeOrder } from '@/hooks/useRealtime';
 import { Button } from '@/components/ui/Button';
 
 const steps = [
@@ -72,6 +73,7 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: order, isPending, isError } = useOrder(id as string);
+  useRealtimeOrder(id as string, !!id);
   const statusIdx = order ? (order.status === 'cancelled' ? -1 : (statusIndex[order.status] ?? 0)) : 0;
   const progress = useSharedValue(0);
 

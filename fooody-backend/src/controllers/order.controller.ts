@@ -26,6 +26,15 @@ export const orderController = {
   async create(req: Request, res: Response, next: NextFunction){
     try{
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
+      // Maintenance gate: block non-admin orders when enabled
+      try {
+        const { settingsRepository } = await import('../repositories/settings.repository');
+        const s = await settingsRepository.get();
+        if ((s as any).maintenanceMode && userRole !== 'admin') {
+          throw new BadRequestError((s as any).maintenanceMessage || 'Foody is under maintenance. Please check back soon.', ERROR_CODES.BAD_REQUEST);
+        }
+      } catch {}
       const { items, deliveryFee, tax, discount, paymentMethod, address } = req.body;
       let { subtotal, total } = req.body;
       if(!items || !Array.isArray(items) || items.length===0) throw new BadRequestError('Items required', ERROR_CODES.BAD_REQUEST);
@@ -78,6 +87,17 @@ export const orderController = {
         paymentMethod: method,
         address,
       });
+      // Realtime: notify admins + user. Firestore listeners will pick it up instantly.
+      try {
+        const { notificationRepository } = await import('../repositories/notification.repository');
+        const { userRepository } = await import('../repositories/user.repository');
+        // User confirmation
+        await notificationRepository.create({ userId, title: 'Order placed', body: `Your order ${order.orderNumber} for ₹${order.total} is ${order.status}`, type: 'order', data: { orderId: order.id, status: order.status } });
+        // Admin broadcast (all admins)
+        const admins = (await userRepository.list(100)).filter((u: any) => u.role === 'admin');
+        if (admins.length) await notificationRepository.createForUsers(admins.map((a: any) => a.id), { title: 'New order received', body: `${order.orderNumber} • ₹${order.total} • ${order.items.length} item(s)`, type: 'order', data: { orderId: order.id } });
+        else await notificationRepository.create({ userId: null as any, title: 'New order received', body: `${order.orderNumber} • ₹${order.total}`, type: 'order', data: { orderId: order.id } });
+      } catch {}
       sendSuccess(res, order, 'Order created', 201);
     }catch(err){ next(err); }
   },

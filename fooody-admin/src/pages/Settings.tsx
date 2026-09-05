@@ -126,8 +126,55 @@ export default function Settings() {
 
   if (isLoading) return <Skeleton className="h-[600px]" />;
 
+  const { data: appSettings } = useQuery({
+    queryKey: ['app-settings'],
+    queryFn: async () => (await api.get('/admin/settings')).data.data,
+  });
+  const maintenanceMutation = useMutation({
+    mutationFn: async (v: { maintenanceMode: boolean; maintenanceMessage?: string }) => (await api.patch('/admin/settings', v)).data.data,
+    onSuccess: async () => {
+      toast.success('Maintenance mode updated — customer app will update instantly');
+      await qc.invalidateQueries({ queryKey: ['app-settings'] });
+      await qc.invalidateQueries({ queryKey: ['restaurant-settings'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-4 max-w-4xl">
+      <Card className={appSettings?.maintenanceMode ? 'border-[#FF5A3D] bg-[#FFF7ED]' : ''}>
+        <CardHeader><CardTitle className="flex items-center gap-2">Maintenance Mode {appSettings?.maintenanceMode && <span className="text-xs bg-[#FF5A3D] text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Enable maintenance mode</p>
+              <p className="text-xs text-[#6B6B6B]">When on, customer app shows maintenance screen instantly (realtime). Admins bypass.</p>
+            </div>
+            <button
+              onClick={() => maintenanceMutation.mutate({ maintenanceMode: !appSettings?.maintenanceMode })}
+              disabled={maintenanceMutation.isPending}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${appSettings?.maintenanceMode ? 'bg-[#FF5A3D]' : 'bg-[#E5E7EB]'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${appSettings?.maintenanceMode ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {appSettings?.maintenanceMode && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Maintenance message</label>
+              <Input
+                defaultValue={appSettings?.maintenanceMessage || ''}
+                placeholder="We're under maintenance..."
+                onBlur={(e: any) => {
+                  const v = e.target.value;
+                  if (v !== appSettings?.maintenanceMessage) maintenanceMutation.mutate({ maintenanceMode: true, maintenanceMessage: v });
+                }}
+              />
+              <p className="text-xs text-[#9A9A9A]">Realtime — customer app updates within seconds via Firestore listener + 10s REST polling fallback.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div>
         <h1 className="text-xl font-bold">Restaurant Settings</h1>
         <p className="text-sm text-[#6B6B6B]">Manage restaurant info, delivery and opening hours — reflected in the customer app</p>

@@ -11,6 +11,8 @@ export interface AppSettings {
     featuredIds?: string[];
   };
   bannersEnabled?: boolean;
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
   updatedAt: string;
 }
 
@@ -22,6 +24,8 @@ const defaultSettings: AppSettings = {
   restaurant: null,
   home: { popularLimit: 6, popularEnabled: true, categoriesEnabled: true, featuredIds: [] },
   bannersEnabled: true,
+  maintenanceMode: false,
+  maintenanceMessage: 'Foody is under maintenance. Please check back soon.',
   updatedAt: new Date().toISOString(),
 };
 

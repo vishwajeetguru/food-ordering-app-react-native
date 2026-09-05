@@ -27,6 +27,15 @@ router.use('/restaurant', restaurantRoutes); // singular alias for frontend conv
 router.use('/offers', offerRoutes);
 router.use('/home', homeRoutes);
 router.use('/seed', seedRoutes);
+// Public settings (maintenanceMode etc) — realtime via Firestore, REST fallback polls this
+router.get('/settings', async (_req, res, next) => {
+  try {
+    const { settingsRepository } = await import('../repositories/settings.repository');
+    const s = await settingsRepository.get();
+    const { sendSuccess } = await import('../utils/response');
+    sendSuccess(res as any, { maintenanceMode: !!(s as any).maintenanceMode, maintenanceMessage: (s as any).maintenanceMessage || '', home: (s as any).home, bannersEnabled: (s as any).bannersEnabled }, 'Settings retrieved');
+  } catch (e) { next(e); }
+});
 router.use('/admin', adminRoutes);
 router.use('/wishlist', wishlistRoutes);
 router.use('/notifications', notificationRoutes);
